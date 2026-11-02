@@ -78,7 +78,7 @@ class FloatImageLoaderTests(unittest.TestCase):
         self.assertEqual(result["value_range"], (-0.5, 2.0))
 
     def test_tiff_with_multiple_extra_samples_is_rejected(self):
-        pixels = np.zeros((2, 2, 4), dtype=np.float32)
+        pixels = np.zeros((2, 2, 5), dtype=np.float32)
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "multiple_extra_samples.tif"
@@ -90,7 +90,7 @@ class FloatImageLoaderTests(unittest.TestCase):
                 LOADER.load_float_image(path)
 
     def test_rgb_tiff_with_unexpected_extra_sample_is_rejected(self):
-        pixels = np.zeros((2, 2, 3), dtype=np.float32)
+        pixels = np.zeros((2, 2, 4), dtype=np.float32)
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "rgb_with_extra_sample.tif"
