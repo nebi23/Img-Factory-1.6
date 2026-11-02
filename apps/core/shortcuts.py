@@ -61,7 +61,7 @@ def get_shortcuts_help_text(): #vers 10
     <tr><td>Open IMG</td><td>Ctrl+O</td></tr>
     <tr><td>Close IMG</td><td>Ctrl+W</td></tr>
     <tr><td>Save</td><td>Ctrl+S</td></tr>
-    <tr><td>Import Files</td><td>Ctrl+I</td></tr>
+    <tr><td>Import Files / Texture (active editor)</td><td>Ctrl+I</td></tr>
     <tr><td>Export Selected</td><td>Ctrl+E</td></tr>
     <tr><td>Remove Selected</td><td>Delete</td></tr>
     <tr><td>Rename Entry</td><td>F2</td></tr>
@@ -219,6 +219,31 @@ def setup_debug_shortcuts(main_window): #vers 5
 def setup_main_shortcuts(main_window): #vers 5
     """Setup main application shortcuts"""
     try:
+        def _dispatch_import_files():
+            """Import into the active TXD Workshop, or fall back to IMG import."""
+            tab_widget = getattr(main_window, 'main_tab_widget', None)
+            current_tab = tab_widget.currentWidget() if tab_widget else None
+
+            if current_tab is not None:
+                try:
+                    from apps.components.Txd_Editor.txd_workshop import TXDWorkshop
+                    workshop = (
+                        current_tab if isinstance(current_tab, TXDWorkshop)
+                        else current_tab.findChild(TXDWorkshop)
+                    )
+                except Exception:
+                    workshop = None
+
+                if workshop is not None:
+                    workshop._import_textures()
+                    return
+
+            import_method = getattr(main_window, 'import_files', None)
+            if callable(import_method):
+                import_method()
+            else:
+                main_window.log_message("Import files — not yet available")
+
         shortcuts = [
             # File operations
             ("Ctrl+N", "create_new_img", "Create new IMG"),
@@ -259,7 +284,11 @@ def setup_main_shortcuts(main_window): #vers 5
         created_shortcuts = []
 
         for key_sequence, method_name, description in shortcuts:
-            method = getattr(main_window, method_name, None)
+            method = (
+                _dispatch_import_files
+                if method_name == "import_files"
+                else getattr(main_window, method_name, None)
+            )
             if method and callable(method):
                 shortcut = QShortcut(QKeySequence(key_sequence), main_window)
                 shortcut.activated.connect(method)
