@@ -6307,10 +6307,11 @@ class TXDLogicMixin: #vers 1
                     self.selected_texture['rgba_data'] = preview_rgba
                     self.selected_texture['has_alpha']  = has_alpha
                     self.selected_texture['format']     = fmt
-                    for hdr_field in ('hdr_data', 'hdr_metadata', 'hdr_source'):
+                    for hdr_field in ('hdr_data', 'hdr_metadata', 'hdr_source', 'hdr_preview_stale'):
                         self.selected_texture.pop(hdr_field, None)
                     if hdr_result is not None:
                         self.selected_texture['hdr_data'] = hdr_result['pixel_data'].copy()
+                        self.selected_texture['hdr_preview_stale'] = False
                         self.selected_texture['hdr_metadata'] = {
                             'dtype': hdr_result['dtype'],
                             'channels': hdr_result['channel_names'],
@@ -6351,6 +6352,7 @@ class TXDLogicMixin: #vers 1
                     }
                     if hdr_result is not None:
                         new_tex['hdr_data'] = hdr_result['pixel_data'].copy()
+                        new_tex['hdr_preview_stale'] = False
                         new_tex['hdr_metadata'] = {
                             'dtype': hdr_result['dtype'],
                             'channels': hdr_result['channel_names'],
