@@ -250,24 +250,23 @@ def _tiff_extra_sample_name(sample):
 
 
 def _tiff_channel_names(channel_count, extra_samples=(), photometric=None):
-    alpha_samples = {"ASSOCALPHA", "UNASSALPHA"}
-    has_alpha = any(
-        _tiff_extra_sample_name(sample) in alpha_samples
-        for sample in (extra_samples or ())
+    extra_names = [
+        _tiff_extra_sample_name(sample) for sample in (extra_samples or ())
+    ]
+    has_alpha = (
+        len(extra_names) == 1
+        and extra_names[0] in {"ASSOCALPHA", "UNASSALPHA"}
     )
 
-    if channel_count == 1:
+    if channel_count == 1 and not extra_names:
         return ["Y"]
     if channel_count == 2 and photometric == 1 and has_alpha:
         return ["Y", "A"]
-    if channel_count == 3 and photometric == 2:
+    if channel_count == 3 and photometric == 2 and not extra_names:
         return ["R", "G", "B"]
     if channel_count == 4 and photometric == 2 and has_alpha:
         return ["R", "G", "B", "A"]
 
-    extra_names = [
-        _tiff_extra_sample_name(sample) for sample in (extra_samples or ())
-    ]
     raise FloatImageLoadError(
         "Unsupported TIFF channel layout: "
         f"{channel_count} samples, photometric={photometric}, "
