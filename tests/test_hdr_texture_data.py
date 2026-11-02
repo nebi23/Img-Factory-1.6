@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from apps.methods.hdr_texture_data import copy_hdr_fields
+from apps.methods.hdr_texture_data import copy_hdr_fields, mark_hdr_preview_modified
 
 
 class HdrTextureDataCopyTests(unittest.TestCase):
@@ -24,6 +24,21 @@ class HdrTextureDataCopyTests(unittest.TestCase):
         target = copy_hdr_fields(source, {})
         target["hdr_metadata"]["channels"].append("A")
         self.assertEqual(source["hdr_metadata"]["channels"], ["R", "G", "B"])
+
+    def test_preview_stale_flag_is_copied(self):
+        source = {"hdr_data": np.ones((1, 1, 3)), "hdr_preview_stale": True}
+        target = copy_hdr_fields(source, {})
+        self.assertTrue(target["hdr_preview_stale"])
+
+    def test_edit_marks_existing_hdr_source_stale(self):
+        texture = {"hdr_data": np.ones((1, 1, 3)), "hdr_preview_stale": False}
+        self.assertIs(mark_hdr_preview_modified(texture), texture)
+        self.assertTrue(texture["hdr_preview_stale"])
+
+    def test_edit_without_hdr_source_does_not_add_flag(self):
+        texture = {"rgba_data": b"\\x00"}
+        mark_hdr_preview_modified(texture)
+        self.assertNotIn("hdr_preview_stale", texture)
 
     def test_missing_hdr_fields_are_ignored(self):
         target = copy_hdr_fields({"name": "ordinary"}, {"name": "copy"})
