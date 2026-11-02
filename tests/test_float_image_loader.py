@@ -83,7 +83,8 @@ class FloatImageLoaderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "multiple_extra_samples.tif"
             tifffile.imwrite(
-                path, pixels, photometric="rgb",
+                path, pixels, photometric="rgb", planarconfig="contig",
+                metadata={"axes": "YXS"},
                 extrasamples=["unassalpha", "unspecified"],
             )
             with self.assertRaises(LOADER.FloatImageLoadError):
