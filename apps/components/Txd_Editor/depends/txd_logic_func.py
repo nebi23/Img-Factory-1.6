@@ -4607,14 +4607,18 @@ class TXDLogicMixin: #vers 1
 
         self.info_name.setReadOnly(True)
 
-    def _save_alpha_name(self): #vers 2
+    def _save_alpha_name(self): #vers 3
         """Save edited alpha name"""
         if not self.selected_texture or not self.selected_texture.get('has_alpha'):
             return
 
+        old_name = self.selected_texture.get('alpha_name', '')
         new_alpha_name = self.info_alpha_name.text().strip()
-        if new_alpha_name and new_alpha_name != self.selected_texture.get('alpha_name', ''):
-            old_name = self.selected_texture.get('alpha_name', '')
+
+        if not new_alpha_name:
+            # Do not leave the editor blank while retaining the previous stored name.
+            self.info_alpha_name.setText(old_name)
+        elif new_alpha_name != old_name:
             self._save_undo_state(f"Rename alpha: {old_name} -> {new_alpha_name}")
             self.selected_texture['alpha_name'] = new_alpha_name
             self._reload_texture_table()
@@ -7245,31 +7249,30 @@ class TXDLogicMixin: #vers 1
         self.texture_table.setRowHeight(row, 100)
         self.texture_table.setColumnWidth(0, 80)
 
-    def _quick_alpha_check(self, texture): #vers 1
-        """Quick check if alpha might be same as RGB (for warning icon)"""
+    def _quick_alpha_check(self, texture): #vers 2
+        """Flag likely grayscale RGB/alpha duplication."""
         if not texture.get('has_alpha', False):
             return False
 
         rgba_data = texture.get('rgba_data', b'')
-        if not rgba_data or len(rgba_data) < 400:  # Need at least 100 pixels
+        if not rgba_data or len(rgba_data) < 400:
             return False
 
-        # Sample first 100 pixels
+        pixel_count = len(rgba_data) // 4
+        samples = min(1024, pixel_count)
         matches = 0
-        samples = min(100, len(rgba_data) // 4)
 
-        for i in range(0, samples * 4, 4):
-            r = rgba_data[i]
-            g = rgba_data[i + 1]
-            b = rgba_data[i + 2]
-            a = rgba_data[i + 3]
-
+        # Spread samples across the whole image instead of checking its top-left corner.
+        for sample_index in range(samples):
+            pixel_index = (sample_index * pixel_count) // samples
+            offset = pixel_index * 4
+            r, g, b, a = rgba_data[offset:offset + 4]
             luminosity = int(0.299 * r + 0.587 * g + 0.114 * b)
 
             if abs(luminosity - a) < 10:
                 matches += 1
 
-        # If more than 90% match, flag as suspicious
+        # This is a visual hint only; the full Alpha Validity Check remains available.
         return (matches / samples) > 0.9
 
     def _load_settings(self): #vers 3
