@@ -25,3 +25,6 @@ jobs:
 
       - name: Run float image loader tests
         run: python -m unittest discover -s tests -p "test_float_image_loader.py" -v
+
+      - name: Run HDR texture data tests
+        run: python -m unittest discover -s tests -p "test_hdr_texture_data.py" -v
