@@ -1266,6 +1266,8 @@ class TXDLogicMixin: #vers 1
                 self.selected_texture['width'] = tex_width
                 self.selected_texture['height'] = tex_height
                 self.selected_texture['rgba_data'] = bytes(blank_rgba)
+                from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+                mark_hdr_preview_modified(self.selected_texture)
 
                 if self.main_window and hasattr(self.main_window, 'log_message'):
                     self.main_window.log_message(f"Created blank texture {tex_width}x{tex_height} for alpha import")
@@ -3876,6 +3878,8 @@ class TXDLogicMixin: #vers 1
             img = Image.frombytes('RGBA', (w, h), bytes(t['rgba_data'])).resize(
                 (tw, th), Image.Resampling.LANCZOS)
             t['rgba_data'] = img.tobytes()
+            from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+            mark_hdr_preview_modified(t)
             t['width'], t['height'] = tw, th
             self._rebuild_mip_levels(t)
         self._update_texture_info(self.selected_texture)
@@ -4957,6 +4961,10 @@ class TXDLogicMixin: #vers 1
                 if self.main_window and hasattr(self.main_window, 'log_message'):
                     self.main_window.log_message(f"Convert warning: {conv_err}")
 
+            if rgba and w and h:
+                from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+                mark_hdr_preview_modified(tex)
+
             tex['format'] = selected_format
             tex['depth']  = bit_depth
 
@@ -5027,6 +5035,8 @@ class TXDLogicMixin: #vers 1
             if result['apply'] and workshop.dp5_canvas:
                 self._save_undo_state("DP5 Paint edit")
                 tex['rgba_data'] = bytes(workshop.dp5_canvas.rgba)
+                from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+                mark_hdr_preview_modified(tex)
                 tex['width'] = workshop.dp5_canvas.tex_w
                 tex['height'] = workshop.dp5_canvas.tex_h
                 self._update_texture_info(tex)
@@ -7016,6 +7026,8 @@ class TXDLogicMixin: #vers 1
                         texture['width'] = width
                         texture['height'] = height
                         texture['rgba_data'] = rgba_data
+                        for hdr_field in ('hdr_data', 'hdr_metadata', 'hdr_source', 'hdr_preview_stale'):
+                            texture.pop(hdr_field, None)
                         texture['has_alpha'] = has_alpha
 
                         if has_alpha:
