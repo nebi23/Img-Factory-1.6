@@ -31,3 +31,6 @@ jobs:
 
       - name: Run HDR preview tests
         run: python -m unittest discover -s tests -p "test_hdr_preview.py" -v
+
+      - name: Run HDR tone mapping tests
+        run: python -m unittest discover -s tests -p "test_hdr_tone_mapping.py" -v
