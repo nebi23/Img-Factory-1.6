@@ -1209,6 +1209,8 @@ class TXDLogicMixin: #vers 1
             self.selected_texture['width'] = width
             self.selected_texture['height'] = height
             self.selected_texture['rgba_data'] = rgba_data
+            from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+            mark_hdr_preview_modified(self.selected_texture)
             self.selected_texture['has_alpha'] = has_alpha
 
             # Update alpha name if texture now has alpha
@@ -1302,6 +1304,8 @@ class TXDLogicMixin: #vers 1
                     rgba_data[i * 4 + 3] = alpha_val  # Set alpha channel
 
             self.selected_texture['rgba_data'] = bytes(rgba_data)
+            from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+            mark_hdr_preview_modified(self.selected_texture)
             self.selected_texture['has_alpha'] = True
 
             # Add alpha name if not present
@@ -2361,6 +2365,8 @@ class TXDLogicMixin: #vers 1
 
             # Update texture
             self.selected_texture['rgba_data'] = bytes(new_rgba)
+            from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+            mark_hdr_preview_modified(self.selected_texture)
             self.selected_texture['has_alpha'] = True
 
             # Add alpha name if not present
@@ -3906,6 +3912,8 @@ class TXDLogicMixin: #vers 1
 
             # Update texture data
             self.selected_texture['rgba_data'] = new_rgba_data
+            from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+            mark_hdr_preview_modified(self.selected_texture)
             return True
 
         except Exception as e:
@@ -5126,6 +5134,8 @@ class TXDLogicMixin: #vers 1
 
                 self._save_undo_state("Apply filters")
                 tex['rgba_data'] = img.tobytes()
+                from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+                mark_hdr_preview_modified(tex)
                 self._update_texture_info(tex)
                 self._update_table_display()
                 self._mark_as_modified()
@@ -5591,6 +5601,8 @@ class TXDLogicMixin: #vers 1
             for t in texs:
                 img = op(Image.frombytes('RGBA', (t['width'], t['height']), bytes(t['rgba_data'])))
                 t['rgba_data'] = img.tobytes()
+                from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+                mark_hdr_preview_modified(t)
                 t['width'], t['height'] = img.width, img.height
                 self._rebuild_mip_levels(t)
             self._update_texture_info(self.selected_texture)
@@ -5725,6 +5737,8 @@ class TXDLogicMixin: #vers 1
                 res = compute()
                 if res:
                     t['rgba_data'] = res
+                    from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+                    mark_hdr_preview_modified(t)
                     self._rebuild_mip_levels(t)
             self._rebuild_mip_levels(self.selected_texture)
             self._update_table_display()
@@ -5747,6 +5761,8 @@ class TXDLogicMixin: #vers 1
         if not t:
             return
         t['rgba_data'] = rgba
+        from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+        mark_hdr_preview_modified(t)
         t['modified']  = True
         self._mark_as_modified()
         # Refresh preview using the existing display pipeline
@@ -5841,6 +5857,8 @@ class TXDLogicMixin: #vers 1
             self._set_current_rgba(new_rgba)
             for t in others:
                 t['rgba_data'] = scale_alpha_for_coverage(bytes(t['rgba_data']), t['width'], t['height'], target)
+                from apps.methods.hdr_texture_data import mark_hdr_preview_modified
+                mark_hdr_preview_modified(t)
             self._update_table_display()
             self._mark_as_modified()
             new_cov = compute_mip0_coverage(new_rgba, w, h)
