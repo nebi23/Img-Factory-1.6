@@ -285,7 +285,13 @@ def setup_main_shortcuts(main_window): #vers 5
         created_shortcuts = []
 
         for key_sequence, method_name, description in shortcuts:
-            method = getattr(main_window, method_name, None)
+            # Local dispatcher callbacks are not attributes of main_window.
+            # Resolve this callback directly instead of creating a placeholder.
+            method = (
+                _dispatch_import_files
+                if method_name == "_dispatch_import_files"
+                else getattr(main_window, method_name, None)
+            )
             if method and callable(method):
                 shortcut = QShortcut(QKeySequence(key_sequence), main_window)
                 shortcut.activated.connect(method)
