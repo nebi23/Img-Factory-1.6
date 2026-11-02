@@ -49,23 +49,49 @@ def _load_exr(path):
         exr_file = OpenEXR.File(str(path))
         header = exr_file.header()
         source_channels = exr_file.channels()
-        channel_map = {
-            name.rsplit(".", 1)[-1]: channel.pixels
-            for name, channel in source_channels.items()
-            if name.rsplit(".", 1)[-1] in ("R", "G", "B", "A", "Y")
-        }
+        channel_groups = {}
 
-        if all(name in channel_map for name in ("R", "G", "B")):
-            channel_names = ["R", "G", "B"]
-            if "A" in channel_map:
-                channel_names.append("A")
-        elif "Y" in channel_map:
-            channel_names = ["Y"]
-            if "A" in channel_map:
-                channel_names.append("A")
-        else:
+        for name, channel in source_channels.items():
+            if "." in name:
+                layer, channel_name = name.rsplit(".", 1)
+            else:
+                layer, channel_name = "", name
+            if channel_name in ("R", "G", "B", "A", "Y"):
+                channel_groups.setdefault(layer, {})[channel_name] = channel.pixels
+
+        def supported_channels(group):
+            if all(name in group for name in ("R", "G", "B")):
+                names = ["R", "G", "B"]
+            elif "Y" in group:
+                names = ["Y"]
+            else:
+                return None
+            if "A" in group:
+                names.append("A")
+            return names
+
+        candidates = [
+            (layer, group, supported_channels(group))
+            for layer, group in channel_groups.items()
+            if supported_channels(group) is not None
+        ]
+        if not candidates:
             raise FloatImageLoadError(
                 "EXR must contain RGB channels or a luminance Y channel."
+            )
+
+        # Prefer the conventional unlayered channels. Otherwise, only accept
+        # a single usable layer rather than silently mixing or guessing.
+        unlayered = [item for item in candidates if item[0] == ""]
+        if unlayered:
+            selected_layer, channel_map, channel_names = unlayered[0]
+        elif len(candidates) == 1:
+            selected_layer, channel_map, channel_names = candidates[0]
+        else:
+            layers = ", ".join(item[0] for item in candidates)
+            raise FloatImageLoadError(
+                f"EXR contains multiple usable channel layers ({layers}); "
+                "select or flatten one layer before importing."
             )
 
         arrays = [np.asarray(channel_map[name]) for name in channel_names]
@@ -86,6 +112,7 @@ def _load_exr(path):
         metadata = {
             "header": _safe_metadata(header),
             "channel_names": channel_names,
+            "selected_layer": selected_layer or None,
         }
         return _build_result(
             pixel_data, "EXR", channel_names, color_space, metadata
@@ -132,7 +159,7 @@ def _load_tiff(path):
                     f"found {pixel_data.dtype}."
                 )
 
-            if pixel_data.ndim == 2:
+            if pixel_data.ndim == 2 and axes.endswith("YX"):
                 pixel_data = pixel_data[..., np.newaxis]
                 channel_names = ["Y"]
             elif pixel_data.ndim == 3 and axes.endswith("YXS"):
@@ -198,6 +225,12 @@ def _safe_metadata(header):
 
 def _build_result(pixel_data, source_format, channel_names, color_space, metadata):
     height, width, channels = pixel_data.shape
+    finite_values = pixel_data[np.isfinite(pixel_data)]
+    value_range = (
+        (float(finite_values.min()), float(finite_values.max()))
+        if finite_values.size
+        else (float("nan"), float("nan"))
+    )
     return {
         "width": int(width),
         "height": int(height),
@@ -208,9 +241,6 @@ def _build_result(pixel_data, source_format, channel_names, color_space, metadat
         "channel_names": list(channel_names),
         "color_space": color_space,
         "source_format": source_format,
-        "value_range": (
-            float(np.nanmin(pixel_data)),
-            float(np.nanmax(pixel_data)),
-        ),
+        "value_range": value_range,
         "metadata": metadata,
     }
