@@ -27,6 +27,15 @@ class HdrTextureDataCopyTests(unittest.TestCase):
         target["hdr_metadata"]["channels"].append("A")
         self.assertEqual(source["hdr_metadata"]["channels"], ["R", "G", "B"])
 
+    def test_tone_mapping_settings_are_copied(self):
+        source = {
+            "hdr_tone_operator": "aces",
+            "hdr_exposure": 1.25,
+        }
+        target = copy_hdr_fields(source, {})
+        self.assertEqual(target["hdr_tone_operator"], "aces")
+        self.assertEqual(target["hdr_exposure"], 1.25)
+
     def test_preview_stale_flag_is_copied(self):
         source = {"hdr_data": np.ones((1, 1, 3)), "hdr_preview_stale": True}
         target = copy_hdr_fields(source, {})
@@ -64,6 +73,20 @@ class HdrTextureDataCopyTests(unittest.TestCase):
         self.assertEqual(texture["rgba_data"], bytes([1, 2, 3, 4]))
         np.testing.assert_array_equal(texture["hdr_data"], pixels)
         self.assertEqual(len(texture["mipmap_levels"]), 1)
+
+    def test_export_uses_saved_tone_mapping_settings(self):
+        pixels = np.array([[[0.18, 0.5, 1.0]]], dtype=np.float32)
+        base = {
+            "width": 1, "height": 1, "rgba_data": bytes(4),
+            "hdr_data": pixels.copy(),
+            "hdr_metadata": {"channels": ["R", "G", "B"]},
+            "hdr_preview_stale": False,
+        }
+        reinhard = prepare_hdr_export_texture(dict(base))
+        aces_texture = dict(base, hdr_tone_operator="aces", hdr_exposure=1.0)
+        aces = prepare_hdr_export_texture(aces_texture)
+        self.assertNotEqual(reinhard["rgba_data"], aces["rgba_data"])
+        np.testing.assert_array_equal(base["hdr_data"], pixels)
 
     def test_stale_preview_is_exported_without_hdr_conversion(self):
         texture = {
