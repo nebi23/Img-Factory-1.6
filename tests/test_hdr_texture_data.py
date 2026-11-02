@@ -2,7 +2,9 @@ import unittest
 
 import numpy as np
 
-from apps.methods.hdr_texture_data import copy_hdr_fields, mark_hdr_preview_modified
+from apps.methods.hdr_texture_data import (
+    copy_hdr_fields, mark_hdr_preview_modified, prepare_hdr_export_texture,
+)
 
 
 class HdrTextureDataCopyTests(unittest.TestCase):
@@ -43,6 +45,57 @@ class HdrTextureDataCopyTests(unittest.TestCase):
     def test_missing_hdr_fields_are_ignored(self):
         target = copy_hdr_fields({"name": "ordinary"}, {"name": "copy"})
         self.assertEqual(target, {"name": "copy"})
+
+    def test_fresh_hdr_is_tone_mapped_and_converted_to_srgb(self):
+        pixels = np.array([[[1.0, 0.5, 0.0, 0.5]]], dtype=np.float32)
+        texture = {
+            "width": 1, "height": 1, "rgba_data": bytes([1, 2, 3, 4]),
+            "hdr_data": pixels.copy(),
+            "hdr_metadata": {"channels": ["R", "G", "B", "A"]},
+            "hdr_preview_stale": False,
+            "mipmap_levels": [{"level": 0, "rgba_data": b"old"}],
+        }
+        prepared = prepare_hdr_export_texture(texture)
+        self.assertIsNot(prepared, texture)
+        self.assertEqual(len(prepared["rgba_data"]), 4)
+        self.assertGreater(prepared["rgba_data"][0], 180)
+        self.assertEqual(prepared["rgba_data"][3], 128)
+        self.assertEqual(prepared["mipmap_levels"], [])
+        self.assertEqual(texture["rgba_data"], bytes([1, 2, 3, 4]))
+        np.testing.assert_array_equal(texture["hdr_data"], pixels)
+        self.assertEqual(len(texture["mipmap_levels"]), 1)
+
+    def test_stale_preview_is_exported_without_hdr_conversion(self):
+        texture = {
+            "width": 1, "height": 1, "rgba_data": bytes([10, 20, 30, 40]),
+            "hdr_data": np.ones((1, 1, 3), dtype=np.float32),
+            "hdr_preview_stale": True,
+        }
+        self.assertIs(prepare_hdr_export_texture(texture), texture)
+
+    def test_hdr_dimensions_are_resized_for_export(self):
+        texture = {
+            "width": 2, "height": 1, "rgba_data": bytes(8),
+            "hdr_data": np.ones((1, 1, 3), dtype=np.float32),
+            "hdr_metadata": {"channels": ["R", "G", "B"]},
+            "hdr_preview_stale": False,
+        }
+        prepared = prepare_hdr_export_texture(texture)
+        self.assertEqual(len(prepared["rgba_data"]), 8)
+        self.assertEqual(texture["hdr_data"].shape, (1, 1, 3))
+
+    def test_grayscale_hdr_exports_as_rgb_with_opaque_alpha(self):
+        texture = {
+            "width": 1, "height": 1, "rgba_data": bytes(4),
+            "hdr_data": np.array([[[0.5]]], dtype=np.float32),
+            "hdr_metadata": {"channels": ["Y"]},
+            "hdr_preview_stale": False,
+        }
+        prepared = prepare_hdr_export_texture(texture)
+        rgba = np.frombuffer(prepared["rgba_data"], dtype=np.uint8)
+        self.assertEqual(rgba[0], rgba[1])
+        self.assertEqual(rgba[1], rgba[2])
+        self.assertEqual(rgba[3], 255)
 
 
 if __name__ == "__main__":
