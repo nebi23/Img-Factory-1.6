@@ -58,11 +58,12 @@ def prepare_hdr_export_texture(texture):
 
     The original texture and HDR array are never modified. A stale HDR preview
     is intentionally ignored so user edits to RGBA8 are not overwritten.
-    Existing mipmaps are discarded for a fresh HDR export because they belong
-    to the previous LDR image; the encoder will write the prepared base level.
+    Existing mipmap depth is retained, but every level is regenerated from the
+    newly tone-mapped base image so old LDR mip pixels cannot leak into export.
     """
     import numpy as np
     from copy import copy
+    from PIL import Image
     from apps.methods.hdr_tone_mapping import tone_map
 
     if "hdr_data" not in texture or texture.get("hdr_preview_stale", False):
@@ -85,8 +86,6 @@ def prepare_hdr_export_texture(texture):
         raise ValueError("HDR export target dimensions must be positive.")
 
     if pixels.shape[:2] != (target_height, target_width):
-        from PIL import Image
-
         resized = []
         for channel in range(pixels.shape[2]):
             plane = Image.fromarray(pixels[:, :, channel].astype(np.float32), mode="F")
@@ -120,6 +119,37 @@ def prepare_hdr_export_texture(texture):
 
     prepared = copy(texture)
     prepared["rgba_data"] = np.concatenate((rgb8, alpha8), axis=2).tobytes()
-    prepared["mipmap_levels"] = []
-    prepared["mipmaps"] = 1
+
+    # Keep the requested mipmap count, rebuilding every level from the
+    # tone-mapped base image instead of retaining levels from an older preview.
+    source_levels = texture.get("mipmap_levels") or []
+    level_count = max(1, len(source_levels))
+    if level_count > 1:
+        base = Image.frombytes(
+            "RGBA", (target_width, target_height), prepared["rgba_data"]
+        )
+        levels = []
+        width, height = target_width, target_height
+        for level in range(level_count):
+            image = base if level == 0 else base.resize(
+                (width, height), Image.Resampling.BOX
+            )
+            rgba = image.tobytes()
+            levels.append({
+                "level": level,
+                "width": width,
+                "height": height,
+                "rgba_data": rgba,
+                "compressed_data": None,
+                "compressed_size": len(rgba),
+            })
+            if width == 1 and height == 1:
+                break
+            width, height = max(1, width // 2), max(1, height // 2)
+        prepared["mipmap_levels"] = levels
+        prepared["mipmaps"] = len(levels)
+    else:
+        prepared["mipmap_levels"] = []
+        prepared["mipmaps"] = 1
+
     return prepared
