@@ -181,7 +181,7 @@ from apps.methods.txd_dialogs import BumpmapManagerWindow, MipmapManagerWindow
 from apps.methods.txd_versions import detect_txd_version, get_game_from_version, get_platform_name, get_version_capabilities, is_bumpmap_supported, validate_txd_format
 from apps.methods.img_factory_settings import get_user_config_dir
 
-_DROP_EXTS = ('.txd', '.wtd', '.wdr', '.wft', '.wdd', '.nft', '.xtx', '.chk', '.pvr', '.img', '.png', '.jpg', '.jpeg', '.bmp', '.tga', '.dds', '.gif', '.tiff', '.webp')
+_DROP_EXTS = ('.txd', '.wtd', '.wdr', '.wft', '.wdd', '.nft', '.xtx', '.chk', '.pvr', '.img', '.png', '.jpg', '.jpeg', '.bmp', '.tga', '.dds', '.gif', '.tif', '.tiff', '.exr', '.webp')
 
 class TXDLogicMixin: #vers 1
     """logic methods for TXDWorkshop."""
