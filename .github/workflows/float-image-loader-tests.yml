@@ -34,3 +34,6 @@ jobs:
 
       - name: Run HDR tone mapping tests
         run: python -m unittest discover -s tests -p "test_hdr_tone_mapping.py" -v
+
+      - name: Run TXD HDR export integration tests
+        run: python -m unittest discover -s tests -p "test_txd_hdr_export_integration.py" -v
