@@ -7250,7 +7250,7 @@ class TXDLogicMixin: #vers 1
         self.texture_table.setColumnWidth(0, 80)
 
     def _quick_alpha_check(self, texture): #vers 2
-        """Flag likely grayscale RGB/alpha duplication, not simple binary masks."""
+        """Flag likely grayscale RGB/alpha duplication."""
         if not texture.get('has_alpha', False):
             return False
 
@@ -7260,35 +7260,20 @@ class TXDLogicMixin: #vers 1
 
         pixel_count = len(rgba_data) // 4
         samples = min(1024, pixel_count)
-        step = max(1, pixel_count // samples)
         matches = 0
-        alpha_levels = set()
-        intermediate_alpha = 0
-        sampled = 0
 
         # Spread samples across the whole image instead of checking its top-left corner.
-        for pixel_index in range(0, pixel_count, step):
+        for sample_index in range(samples):
+            pixel_index = (sample_index * pixel_count) // samples
             offset = pixel_index * 4
             r, g, b, a = rgba_data[offset:offset + 4]
-            alpha_levels.add(a)
-            if 0 < a < 255:
-                intermediate_alpha += 1
             luminosity = int(0.299 * r + 0.587 * g + 0.114 * b)
 
             if abs(luminosity - a) < 10:
                 matches += 1
-            sampled += 1
-            if sampled >= samples:
-                break
-
-        # Binary masks (e.g. transparent background + opaque white shape) commonly
-        # mirror RGB by design. Similarity alone cannot classify them as corrupt.
-        if (len(alpha_levels) <= 2 or not sampled
-                or intermediate_alpha / sampled <= 0.05):
-            return False
 
         # This is a visual hint only; the full Alpha Validity Check remains available.
-        return (matches / sampled) > 0.9
+        return (matches / samples) > 0.9
 
     def _load_settings(self): #vers 3
         """Load settings from config file"""
