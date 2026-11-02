@@ -46,7 +46,7 @@ def _load_exr(path):
         ) from exc
 
     try:
-        exr_file = OpenEXR.File(str(path))
+        exr_file = OpenEXR.File(str(path), separate_channels=True)
         header = exr_file.header()
         source_channels = exr_file.channels()
         channel_groups = {}
