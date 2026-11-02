@@ -101,6 +101,8 @@ def prepare_hdr_export_texture(texture):
     has_alpha = "A" in channel_names
     color_count = mapped.shape[2] - int(has_alpha)
     linear = np.clip(mapped[:, :, :color_count], 0.0, 1.0)
+    if channel_names in (["Y"], ["Y", "A"]):
+        linear = np.repeat(linear, 3, axis=2)
     srgb = np.where(
         linear <= 0.0031308,
         linear * 12.92,
