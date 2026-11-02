@@ -5825,7 +5825,7 @@ class TXDLogicMixin: #vers 1
             "8-bit preview; later manual edits take priority during export."
         ))
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Apply |
+            QDialogButtonBox.StandardButton.Ok |
             QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(dialog.accept)
