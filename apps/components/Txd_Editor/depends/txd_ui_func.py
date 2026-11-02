@@ -1688,11 +1688,14 @@ class TXDUIMixin(TitlebarMixin): #vers 2
             setattr(self, attr, sc)
 
         # File
-        _key('hotkey_open',       QKeySequence.StandardKey.Open,    self.open_txd_file)
-        _key('hotkey_save',       QKeySequence.StandardKey.Save,    self._save_current)
-        _key('hotkey_force_save', "Alt+Shift+S",                    self._force_save_txd)
-        _key('hotkey_save_as',    QKeySequence.StandardKey.SaveAs,  self._save_as_txd_file)
-        _key('hotkey_close',      QKeySequence.StandardKey.Close,   self.close)
+        # Embedded TXD tabs route Open/Save/Save As through IMG Factory's
+        # main-window dispatcher so these cannot conflict with IMG shortcuts.
+        if not docked:
+            _key('hotkey_open',   QKeySequence.StandardKey.Open,   self.open_txd_file)
+            _key('hotkey_save',   QKeySequence.StandardKey.Save,   self._save_current)
+            _key('hotkey_save_as', QKeySequence.StandardKey.SaveAs, self._save_as_txd_file)
+        _key('hotkey_force_save', "Alt+Shift+S", self._force_save_txd)
+        _key('hotkey_close', QKeySequence.StandardKey.Close, self.close)
         # Edit
         _key('hotkey_undo',       QKeySequence.StandardKey.Undo,    self._undo_last_action)
         _key('hotkey_copy',       QKeySequence.StandardKey.Copy,    self._copy_texture)
