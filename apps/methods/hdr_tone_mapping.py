@@ -9,6 +9,7 @@ import numpy as np
 
 
 SUPPORTED_OPERATORS = ("reinhard", "aces")
+_MAX_TONE_MAP_INPUT = 1.0e20
 
 
 def tone_map(hdr_pixels, operator="reinhard", exposure=0.0, channel_names=None):
@@ -67,25 +68,26 @@ def tone_map(hdr_pixels, operator="reinhard", exposure=0.0, channel_names=None):
 
     has_alpha = "A" in channel_names
     color_count = channel_count - int(has_alpha)
-    scale = np.float32(2.0 ** exposure)
+
+    # Float64 plus a conservative upper bound avoids overflow even for
+    # float64 input, +Inf, and the maximum supported exposure (+32 stops).
     colors = np.nan_to_num(
-        pixels[:, :, :color_count].astype(np.float32, copy=True),
-        nan=0.0, posinf=np.finfo(np.float32).max,
-        neginf=0.0,
+        pixels[:, :, :color_count].astype(np.float64, copy=True),
+        nan=0.0, posinf=_MAX_TONE_MAP_INPUT, neginf=0.0,
     )
-    colors = np.maximum(colors, 0.0)
-    colors *= scale
+    colors = np.clip(colors, 0.0, _MAX_TONE_MAP_INPUT)
+    colors *= 2.0 ** exposure
 
     if operator == "reinhard":
         mapped = colors / (1.0 + colors)
     else:
-        # ACES fitted approximation (Narkowicz), evaluated in float32.
+        # ACES fitted approximation (Narkowicz), evaluated in float64.
         a, b, c, d, e = (2.51, 0.03, 2.43, 0.59, 0.14)
         mapped = (colors * (a * colors + b)) / (
             colors * (c * colors + d) + e
         )
 
-    mapped = np.clip(mapped, 0.0, 1.0)
+    mapped = np.clip(mapped, 0.0, 1.0).astype(np.float32)
     if has_alpha:
         alpha = np.nan_to_num(
             pixels[:, :, color_count:color_count + 1].astype(np.float32, copy=True),
