@@ -205,6 +205,11 @@ def _load_tiff(path):
             elif pixel_data.ndim == 3 and axes.endswith("SYX"):
                 pixel_data = np.moveaxis(pixel_data, 0, -1)
                 channel_count = pixel_data.shape[-1]
+                if page.samplesperpixel != channel_count:
+                    raise FloatImageLoadError(
+                        "TIFF sample count does not match its pixel layout: "
+                        f"metadata={page.samplesperpixel}, data={channel_count}."
+                    )
                 channel_names = _tiff_channel_names(
                     channel_count, page.extrasamples, page.photometric
                 )
