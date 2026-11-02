@@ -5787,6 +5787,78 @@ class TXDLogicMixin: #vers 1
             except Exception:
                 pass
 
+    def _open_hdr_tone_mapping(self):
+        """Adjust the selected HDR texture's tone-mapped preview and export settings."""
+        from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QComboBox,
+                                     QDoubleSpinBox, QLabel, QDialogButtonBox, QMessageBox)
+        texture = getattr(self, 'selected_texture', None)
+        if not texture or 'hdr_data' not in texture:
+            QMessageBox.information(self, "HDR Tone Mapping",
+                                    "Select a texture imported from a floating-point EXR or TIFF image.")
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("HDR Tone Mapping")
+        dialog.setMinimumWidth(340)
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+        operator_combo = QComboBox()
+        operator_combo.addItem("Reinhard", "reinhard")
+        operator_combo.addItem("ACES", "aces")
+        current_operator = texture.get('hdr_tone_operator', 'reinhard')
+        operator_index = operator_combo.findData(current_operator)
+        operator_combo.setCurrentIndex(max(0, operator_index))
+        form.addRow("Operator:", operator_combo)
+
+        exposure_spin = QDoubleSpinBox()
+        exposure_spin.setRange(-32.0, 32.0)
+        exposure_spin.setDecimals(2)
+        exposure_spin.setSingleStep(0.25)
+        exposure_spin.setSuffix(" stops")
+        exposure_spin.setValue(float(texture.get('hdr_exposure', 0.0)))
+        form.addRow("Exposure:", exposure_spin)
+        layout.addLayout(form)
+        layout.addWidget(QLabel(
+            "The HDR source remains unchanged. Applying these settings updates the "
+            "8-bit preview; later manual edits take priority during export."
+        ))
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Apply |
+            QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        from copy import copy
+        from apps.methods.hdr_texture_data import prepare_hdr_export_texture
+        candidate = copy(texture)
+        candidate['hdr_tone_operator'] = operator_combo.currentData()
+        candidate['hdr_exposure'] = exposure_spin.value()
+        candidate['hdr_preview_stale'] = False
+        try:
+            prepared = prepare_hdr_export_texture(candidate)
+        except Exception as exc:
+            QMessageBox.warning(self, "HDR Tone Mapping",
+                                f"Could not generate the HDR preview:\\n{exc}")
+            return
+
+        self._save_undo_state("HDR tone mapping")
+        texture['hdr_tone_operator'] = candidate['hdr_tone_operator']
+        texture['hdr_exposure'] = candidate['hdr_exposure']
+        texture['hdr_preview_stale'] = False
+        texture['rgba_data'] = prepared['rgba_data']
+        texture['modified'] = True
+        self._mark_as_modified()
+        self._update_texture_info(texture)
+        self._set_status(
+            f"HDR preview updated: {candidate['hdr_tone_operator'].upper()}, "
+            f"{candidate['hdr_exposure']:+.2f} stops"
+        )
+
     def _open_colour_adjust(self): #vers 2
         """Colour adjustments — brightness/contrast/hue/sat/sharp/opacity."""
         from apps.methods.txd_tools import ColourAdjustDialog
