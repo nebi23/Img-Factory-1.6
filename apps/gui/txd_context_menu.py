@@ -56,7 +56,7 @@ def create_txd_context_menu(workshop, position): #vers 3
     texture_menu = menu.addMenu("Texture")
 
     import_action = texture_menu.addAction("Import Texture...")
-    import_action.triggered.connect(workshop._import_normal_texture)
+    import_action.triggered.connect(workshop._import_textures)
     import_action.setEnabled(has_textures)
 
     export_action = texture_menu.addAction("Export Selected")
@@ -256,6 +256,11 @@ def create_txd_context_menu(workshop, position): #vers 3
     stats_action = tools_menu.addAction("TXD Statistics")
     stats_action.triggered.connect(workshop._texture_statistics)
     stats_action.setEnabled(has_textures)
+
+    if has_selection and 'hdr_data' in workshop.selected_texture:
+        tools_menu.addSeparator()
+        hdr_tone_action = tools_menu.addAction("HDR Tone Mapping...")
+        hdr_tone_action.triggered.connect(workshop._open_hdr_tone_mapping)
 
     tools_menu.addSeparator()
 

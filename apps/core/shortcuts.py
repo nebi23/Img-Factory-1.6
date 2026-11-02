@@ -61,7 +61,7 @@ def get_shortcuts_help_text(): #vers 10
     <tr><td>Open IMG</td><td>Ctrl+O</td></tr>
     <tr><td>Close IMG</td><td>Ctrl+W</td></tr>
     <tr><td>Save</td><td>Ctrl+S</td></tr>
-    <tr><td>Import Files</td><td>Ctrl+I</td></tr>
+    <tr><td>Import Files / Texture (active editor)</td><td>Ctrl+I</td></tr>
     <tr><td>Export Selected</td><td>Ctrl+E</td></tr>
     <tr><td>Remove Selected</td><td>Delete</td></tr>
     <tr><td>Rename Entry</td><td>F2</td></tr>
@@ -219,16 +219,123 @@ def setup_debug_shortcuts(main_window): #vers 5
 def setup_main_shortcuts(main_window): #vers 5
     """Setup main application shortcuts"""
     try:
+        def _active_txd_workshop():
+            """Return the TXD Workshop nested in the active main-window tab."""
+            tab_widget = getattr(main_window, 'main_tab_widget', None)
+            current_tab = tab_widget.currentWidget() if tab_widget else None
+            if current_tab is None:
+                return None
+            from PyQt6.QtWidgets import QWidget
+            candidates = [current_tab]
+            candidates.extend(current_tab.findChildren(QWidget))
+            return next(
+                (candidate for candidate in candidates
+                 if callable(getattr(candidate, '_import_textures', None))
+                 and callable(getattr(candidate, 'open_txd_file', None))),
+                None
+            )
+
+        def _dispatch_txd_or_main(method_name, fallback_name):
+            """Route file shortcuts to the active TXD editor, otherwise IMG Factory."""
+            workshop = _active_txd_workshop()
+            method = getattr(workshop, method_name, None) if workshop else None
+            if callable(method):
+                method()
+                return
+            fallback = getattr(main_window, fallback_name, None)
+            if callable(fallback):
+                fallback()
+            else:
+                main_window.log_message(f"{fallback_name} — not yet available")
+
+        def _dispatch_open():
+            _dispatch_txd_or_main('open_txd_file', 'open_img_file')
+
+        def _dispatch_save():
+            _dispatch_txd_or_main('_save_current', 'save_img')
+
+        def _dispatch_save_as():
+            workshop = _active_txd_workshop()
+            method = getattr(workshop, '_save_as_txd_file', None) if workshop else None
+            if callable(method):
+                method()
+            else:
+                main_window.log_message("Save As — not available outside TXD Workshop")
+
+        def _dispatch_import_files():
+            """Import into the active embedded TXD Workshop, or use IMG import."""
+            tab_widget = getattr(main_window, 'main_tab_widget', None)
+            current_tab = tab_widget.currentWidget() if tab_widget else None
+
+            if current_tab is not None:
+                # Embedded TXD tabs are QWidget containers; the workshop is
+                # nested inside their layout. Resolve it by capability rather
+                # than importing its class (which can fail under alternate
+                # module loading) or assuming the tab itself is the editor.
+                from PyQt6.QtWidgets import QWidget
+
+                candidates = [current_tab]
+                candidates.extend(current_tab.findChildren(QWidget))
+                for candidate in candidates:
+                    import_textures = getattr(candidate, '_import_textures', None)
+                    if callable(import_textures):
+                        import_textures()
+                        return
+
+            import_method = getattr(main_window, 'import_files', None)
+            if callable(import_method):
+                import_method()
+            else:
+                main_window.log_message("Import files — not yet available")
+
+        # Qt's shortcut map can let nested widgets/actions claim Ctrl+O and
+        # Ctrl+S before the main-window QShortcuts activate. Intercept these
+        # two keys at the application level only while IMG Factory is active
+        # and the TXD Workshop tab is selected. This leaves normal IMG
+        # shortcuts untouched in every other tab/window.
+        from PyQt6.QtCore import QObject, QEvent
+        from PyQt6.QtWidgets import QApplication
+
+        class _TxdFileShortcutFilter(QObject):
+            def eventFilter(self, watched, event):
+                if event.type() != QEvent.Type.KeyPress:
+                    return False
+                active_window = QApplication.activeWindow()
+                if active_window is not main_window:
+                    return False
+                modifiers = event.modifiers()
+                ctrl = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
+                other = (Qt.KeyboardModifier.ShiftModifier |
+                         Qt.KeyboardModifier.AltModifier |
+                         Qt.KeyboardModifier.MetaModifier)
+                if not ctrl or modifiers & other:
+                    return False
+                workshop = _active_txd_workshop()
+                if workshop is None:
+                    return False
+                if event.key() == Qt.Key.Key_O:
+                    _dispatch_open()
+                    return True
+                if event.key() == Qt.Key.Key_S:
+                    _dispatch_save()
+                    return True
+                return False
+
+        shortcut_filter = _TxdFileShortcutFilter(main_window)
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(shortcut_filter)
+            main_window._txd_file_shortcut_filter = shortcut_filter
+
         shortcuts = [
             # File operations
             ("Ctrl+N", "create_new_img", "Create new IMG"),
-            ("Ctrl+O", "open_img_file", "Open IMG file"),
             ("Ctrl+W", "close_img_file", "Close IMG file"),
-            ("Ctrl+S", "save_img", "Save IMG"),
+            ("Ctrl+Shift+S", "_dispatch_save_as", "Save texture files as"),
             ("Ctrl+Q", "close", "Exit application"),
 
             # Entry operations
-            ("Ctrl+I", "import_files", "Import files"),
+            ("Ctrl+I", "_dispatch_import_files", "Import files"),
             ("Ctrl+E", "export_selected", "Export selected"),
             ("Delete", "remove_selected", "Remove selected"),
             ("F2", "rename_selected", "Rename entry"),
@@ -259,7 +366,15 @@ def setup_main_shortcuts(main_window): #vers 5
         created_shortcuts = []
 
         for key_sequence, method_name, description in shortcuts:
-            method = getattr(main_window, method_name, None)
+            # Local dispatcher callbacks are not attributes of main_window.
+            # Resolve this callback directly instead of creating a placeholder.
+            local_dispatchers = {
+                "_dispatch_import_files": _dispatch_import_files,
+                "_dispatch_open": _dispatch_open,
+                "_dispatch_save": _dispatch_save,
+                "_dispatch_save_as": _dispatch_save_as,
+            }
+            method = local_dispatchers.get(method_name, getattr(main_window, method_name, None))
             if method and callable(method):
                 shortcut = QShortcut(QKeySequence(key_sequence), main_window)
                 shortcut.activated.connect(method)
