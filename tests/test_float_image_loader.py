@@ -104,6 +104,22 @@ class FloatImageLoaderTests(unittest.TestCase):
         self.assertEqual(result["channel_names"], ["R", "G", "B"])
         self.assertFalse(result["has_alpha"])
 
+    def test_float32_rgb_tiff_separate_planar_layout(self):
+        pixels = np.arange(12, dtype=np.float32).reshape(3, 2, 2) / 3
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rgb_separate_float.tif"
+            tifffile.imwrite(
+                path, pixels, photometric="rgb", planarconfig="separate"
+            )
+            result = LOADER.load_float_image(path)
+
+        np.testing.assert_array_equal(
+            result["pixel_data"], np.moveaxis(pixels, 0, -1)
+        )
+        self.assertEqual(result["channel_names"], ["R", "G", "B"])
+        self.assertEqual(result["metadata"]["planar_configuration"], 2)
+
     def test_tiff_value_range_ignores_nan_and_infinity(self):
         pixels = np.array(
             [[np.nan, -2.0], [np.inf, 3.0]], dtype=np.float32
