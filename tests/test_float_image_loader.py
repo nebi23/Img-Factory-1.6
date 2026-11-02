@@ -77,6 +77,30 @@ class FloatImageLoaderTests(unittest.TestCase):
         self.assertEqual(result["channels"], 2)
         self.assertEqual(result["value_range"], (-0.5, 2.0))
 
+    def test_tiff_with_multiple_extra_samples_is_rejected(self):
+        pixels = np.zeros((2, 2, 4), dtype=np.float32)
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "multiple_extra_samples.tif"
+            tifffile.imwrite(
+                path, pixels, photometric="rgb",
+                extrasamples=["unassalpha", "unspecified"],
+            )
+            with self.assertRaises(LOADER.FloatImageLoadError):
+                LOADER.load_float_image(path)
+
+    def test_rgb_tiff_with_unexpected_extra_sample_is_rejected(self):
+        pixels = np.zeros((2, 2, 3), dtype=np.float32)
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rgb_with_extra_sample.tif"
+            tifffile.imwrite(
+                path, pixels, photometric="rgb",
+                extrasamples=["unspecified"],
+            )
+            with self.assertRaises(LOADER.FloatImageLoadError):
+                LOADER.load_float_image(path)
+
     def test_two_sample_tiff_without_alpha_metadata_is_rejected(self):
         pixels = np.zeros((2, 2, 2), dtype=np.float32)
 
