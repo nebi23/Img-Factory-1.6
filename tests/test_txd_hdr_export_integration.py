@@ -10,7 +10,7 @@ def _encoded_argb8888_pixel(texture):
     chunk = build_native_chunk(texture, _SA_VER, platform=9)
     _version, children = _native_parts(chunk)
     native_struct = next(payload for kind, payload in children if kind == 1)
-    pixel_offset = 4 + 4 + 32 + 32 + struct.calcsize("<IIHHBBBB")
+    pixel_offset = 4 + 4 + 32 + 32 + struct.calcsize("<IIHHBBBB") + 4
     return native_struct[pixel_offset:pixel_offset + 4]
 
 
