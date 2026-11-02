@@ -6541,7 +6541,7 @@ class TXDLogicMixin: #vers 1
                 'depth': self.selected_texture.get('depth', 32),
                 'rgba_data': self.selected_texture.get('rgba_data'),
                 'has_alpha': has_alpha,  #  Use the actual has_alpha value
-                'mipmap_levels': self.selected_texture.get('mipmap_levels', []).copy(),
+                'mipmap_levels': [level.copy() for level in self.selected_texture.get('mipmap_levels', [])],
                 'filter_flags': self.selected_texture.get('filter_flags', 0x1102),
                 'platform_id': self.selected_texture.get('platform_id', 8),
                 'raster_format_flags': self.selected_texture.get('raster_format_flags', 0),
@@ -6605,7 +6605,7 @@ class TXDLogicMixin: #vers 1
                 'rgba_data': self.selected_texture.get('rgba_data'),
                 'has_alpha': self.selected_texture.get('has_alpha', False),
                 'alpha_name': self.selected_texture.get('alpha_name', ''),
-                'mipmap_levels': self.selected_texture.get('mipmap_levels', []),
+                'mipmap_levels': [level.copy() for level in self.selected_texture.get('mipmap_levels', [])],
                 'filter_flags': self.selected_texture.get('filter_flags', 0x1102),
                 'platform_id': self.selected_texture.get('platform_id', 8),
                 'raster_format_flags': self.selected_texture.get('raster_format_flags', 0),
@@ -6646,6 +6646,9 @@ class TXDLogicMixin: #vers 1
             # Create new texture entry with ALL clipboard data
             from apps.methods.hdr_texture_data import copy_hdr_fields
             new_texture = self.clipboard_texture.copy()
+            new_texture['mipmap_levels'] = [
+                level.copy() for level in self.clipboard_texture.get('mipmap_levels', [])
+            ]
             copy_hdr_fields(self.clipboard_texture, new_texture)
             new_texture['name'] = new_texture['name'] + "_copy"
             if new_texture.get('alpha_name'):
