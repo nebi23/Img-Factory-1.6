@@ -77,6 +77,18 @@ class FloatImageLoaderTests(unittest.TestCase):
         self.assertEqual(result["channels"], 2)
         self.assertEqual(result["value_range"], (-0.5, 2.0))
 
+    def test_two_sample_tiff_without_alpha_metadata_is_rejected(self):
+        pixels = np.zeros((2, 2, 2), dtype=np.float32)
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "two_sample_float.tif"
+            tifffile.imwrite(
+                path, pixels, photometric="minisblack",
+                extrasamples=["unspecified"],
+            )
+            with self.assertRaises(LOADER.FloatImageLoadError):
+                LOADER.load_float_image(path)
+
     def test_float32_tiff_lzw_compression(self):
         pixels = np.arange(12, dtype=np.float32).reshape(2, 2, 3) / 3
 
