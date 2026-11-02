@@ -28,6 +28,8 @@ class FloatImageLoaderTests(unittest.TestCase):
         self.assertEqual(LOADER._tiff_channel_names(1, (), 1), ["Y"])
         with self.assertRaises(LOADER.FloatImageLoadError):
             LOADER._tiff_channel_names(1, (), 2)
+        with self.assertRaises(LOADER.FloatImageLoadError):
+            LOADER._tiff_channel_names(1, ("UNSPECIFIED",), 1)
 
     def test_float32_rgba_tiff_preserves_values_above_one(self):
         pixels = np.array(
