@@ -35,8 +35,8 @@ def tone_map(hdr_pixels, operator="reinhard", exposure=0.0, channel_names=None):
         exposure = float(exposure)
     except (TypeError, ValueError) as exc:
         raise ValueError("Exposure must be a finite number of stops.") from exc
-    if not np.isfinite(exposure):
-        raise ValueError("Exposure must be a finite number of stops.")
+    if not np.isfinite(exposure) or not -32.0 <= exposure <= 32.0:
+        raise ValueError("Exposure must be finite and between -32 and +32 stops.")
 
     pixels = np.asarray(hdr_pixels)
     if pixels.ndim != 3:
