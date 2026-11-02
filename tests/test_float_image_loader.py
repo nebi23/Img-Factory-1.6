@@ -57,6 +57,26 @@ class FloatImageLoaderTests(unittest.TestCase):
         self.assertEqual(result["channel_names"], ["Y"])
         self.assertFalse(result["has_alpha"])
 
+    def test_float32_grayscale_alpha_tiff_preserves_both_channels(self):
+        pixels = np.array(
+            [[[0.25, 0.5], [1.5, 0.75]], [[2.0, 1.0], [-0.5, 0.0]]],
+            dtype=np.float32,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "gray_alpha_float.tif"
+            tifffile.imwrite(
+                path, pixels, photometric="minisblack",
+                extrasamples=["unassalpha"],
+            )
+            result = LOADER.load_float_image(path)
+
+        np.testing.assert_array_equal(result["pixel_data"], pixels)
+        self.assertEqual(result["channel_names"], ["Y", "A"])
+        self.assertTrue(result["has_alpha"])
+        self.assertEqual(result["channels"], 2)
+        self.assertEqual(result["value_range"], (-0.5, 2.0))
+
     def test_float32_tiff_lzw_compression(self):
         pixels = np.arange(12, dtype=np.float32).reshape(2, 2, 3) / 3
 
