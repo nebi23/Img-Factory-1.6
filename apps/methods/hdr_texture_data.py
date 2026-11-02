@@ -26,8 +26,8 @@ def make_hdr_preview_rgba(hdr_result):
     if pixels.ndim != 3:
         raise ValueError("HDR preview expects HxWxC pixel data.")
 
-    if names == ["Y"]:
-        rgb = np.repeat(pixels, 3, axis=2)
+    if names in (["Y"], ["Y", "A"]):
+        rgb = np.repeat(pixels[:, :, :1], 3, axis=2)
     else:
         rgb = pixels[:, :, :3]
 
