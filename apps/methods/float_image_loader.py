@@ -47,6 +47,10 @@ def _load_exr(path):
 
     try:
         exr_file = OpenEXR.File(str(path), separate_channels=True)
+        if len(exr_file.parts) != 1:
+            raise FloatImageLoadError(
+                "Multi-part EXR files are not supported; export a single-part EXR."
+            )
         header = exr_file.header()
         source_channels = exr_file.channels()
         channel_groups = {}
