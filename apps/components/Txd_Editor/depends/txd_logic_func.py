@@ -7263,6 +7263,7 @@ class TXDLogicMixin: #vers 1
         step = max(1, pixel_count // samples)
         matches = 0
         alpha_levels = set()
+        intermediate_alpha = 0
         sampled = 0
 
         # Spread samples across the whole image instead of checking its top-left corner.
@@ -7270,6 +7271,8 @@ class TXDLogicMixin: #vers 1
             offset = pixel_index * 4
             r, g, b, a = rgba_data[offset:offset + 4]
             alpha_levels.add(a)
+            if 0 < a < 255:
+                intermediate_alpha += 1
             luminosity = int(0.299 * r + 0.587 * g + 0.114 * b)
 
             if abs(luminosity - a) < 10:
@@ -7280,7 +7283,8 @@ class TXDLogicMixin: #vers 1
 
         # Binary masks (e.g. transparent background + opaque white shape) commonly
         # mirror RGB by design. Similarity alone cannot classify them as corrupt.
-        if len(alpha_levels) <= 2 or not sampled:
+        if (len(alpha_levels) <= 2 or not sampled
+                or intermediate_alpha / sampled <= 0.05):
             return False
 
         # This is a visual hint only; the full Alpha Validity Check remains available.
