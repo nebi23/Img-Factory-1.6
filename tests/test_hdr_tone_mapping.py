@@ -63,6 +63,19 @@ class HdrToneMappingTests(unittest.TestCase):
         np.testing.assert_allclose(result[0, 0], [0.0, 1.0, 0.0])
         np.testing.assert_allclose(result[0, 1], [0.0, 0.0, 0.5])
 
+    def test_extreme_values_remain_finite_at_maximum_exposure(self):
+        pixels = np.array(
+            [[[np.inf], [np.finfo(np.float64).max], [1.0e30]]],
+            dtype=np.float64,
+        )
+        for operator in ("reinhard", "aces"):
+            with self.subTest(operator=operator):
+                result = tone_map(pixels, operator=operator, exposure=32.0)
+                self.assertTrue(np.all(np.isfinite(result)))
+                self.assertTrue(np.all(result >= 0.0))
+                self.assertTrue(np.all(result <= 1.0))
+                self.assertTrue(np.all(result > 0.99))
+
     def test_invalid_operator_and_input_are_rejected(self):
         with self.assertRaises(ValueError):
             tone_map(np.ones((1, 1, 3), dtype=np.float32), operator="unknown")
