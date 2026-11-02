@@ -168,10 +168,21 @@ def _load_tiff(path):
                 )
 
             if pixel_data.ndim == 2 and axes.endswith("YX"):
+                if page.samplesperpixel != 1 or page.photometric not in (0, 1):
+                    raise FloatImageLoadError(
+                        "Unsupported single-channel TIFF photometric layout: "
+                        f"photometric={page.photometric}, "
+                        f"samples_per_pixel={page.samplesperpixel}."
+                    )
                 pixel_data = pixel_data[..., np.newaxis]
                 channel_names = ["Y"]
             elif pixel_data.ndim == 3 and axes.endswith("YXS"):
                 channel_count = pixel_data.shape[-1]
+                if page.samplesperpixel != channel_count:
+                    raise FloatImageLoadError(
+                        "TIFF sample count does not match its pixel layout: "
+                        f"metadata={page.samplesperpixel}, data={channel_count}."
+                    )
                 channel_names = _tiff_channel_names(
                     channel_count, page.extrasamples, page.photometric
                 )
