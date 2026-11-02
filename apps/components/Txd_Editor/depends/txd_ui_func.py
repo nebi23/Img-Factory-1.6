@@ -1412,6 +1412,10 @@ class TXDUIMixin(TitlebarMixin): #vers 2
                 self.preview_widget.setText("No texture selected")
             return
 
+        # Enable HDR controls only when floating-point source data is retained.
+        if hasattr(self, 'hdr_tone_mapping_btn'):
+            self.hdr_tone_mapping_btn.setEnabled('hdr_data' in texture)
+
         # Set name
         name = texture.get('name', 'Unknown')
         self.info_name.setText(name)
@@ -1701,7 +1705,10 @@ class TXDUIMixin(TitlebarMixin): #vers 2
         _key('hotkey_duplicate',  "Ctrl+D",                         self._duplicate_texture)
         _key('hotkey_rename',     "F2",                             self._rename_texture_shortcut)
         # Texture
-        _key('hotkey_import',     "Ctrl+I",                         self._import_normal_texture)
+        # Embedded TXD tabs use the main-window Ctrl+I dispatcher.
+        # Keep a local shortcut only in standalone mode to avoid competing QShortcuts.
+        if not docked:
+            _key('hotkey_import', "Ctrl+I", self._import_textures)
         _key('hotkey_export',     "Ctrl+E",                         self.export_selected_texture)
         _key('hotkey_export_all', "Ctrl+Shift+E",                   self.export_all_textures)
         # View
