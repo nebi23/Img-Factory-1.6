@@ -6,7 +6,8 @@ def copy_hdr_fields(source, target):
     if "hdr_data" in source:
         data = source["hdr_data"]
         target["hdr_data"] = data.copy() if hasattr(data, "copy") else deepcopy(data)
-    for key in ("hdr_metadata", "hdr_source", "hdr_preview_stale"):
+    for key in ("hdr_metadata", "hdr_source", "hdr_preview_stale",
+                "hdr_tone_operator", "hdr_exposure"):
         if key in source:
             target[key] = deepcopy(source[key])
     return target
