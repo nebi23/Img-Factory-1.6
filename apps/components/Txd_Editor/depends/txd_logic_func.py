@@ -6193,7 +6193,7 @@ class TXDLogicMixin: #vers 1
         from PyQt6.QtWidgets import QFileDialog
         file_paths, _ = QFileDialog.getOpenFileNames(
             self, "Import Texture(s)", self._start_dir(),
-            "Image Files (*.png *.jpg *.jpeg *.bmp *.tga *.dds *.gif *.tiff *.webp);;"
+            "Image Files (*.png *.jpg *.jpeg *.bmp *.tga *.dds *.gif *.tif *.tiff *.exr *.webp);;"
             "All Files (*.*)")
         if file_paths:
             self._import_texture_files(file_paths)
@@ -6233,28 +6233,78 @@ class TXDLogicMixin: #vers 1
         for file_path in file_paths:
             try:
                 fname = os.path.basename(file_path)
-                img = Image.open(file_path).convert('RGBA')
-                has_alpha = img.mode == 'RGBA' and any(p[3] < 255 for p in img.getdata())
-                
-                # Auto-detect format from pixel content
-                fmt = 'ARGB8888' if has_alpha else 'RGB888'
+                hdr_result = None
+                extension = os.path.splitext(fname)[1].lower()
+
+                if extension == '.exr':
+                    from apps.methods.float_image_loader import load_float_image
+                    from apps.methods.hdr_texture_data import make_hdr_preview_rgba
+                    hdr_result = load_float_image(file_path)
+                elif extension in ('.tif', '.tiff'):
+                    import tifffile
+                    with tifffile.TiffFile(file_path) as tif:
+                        is_float_tiff = bool(tif.series and tif.series[0].dtype.kind == 'f')
+                    if is_float_tiff:
+                        from apps.methods.float_image_loader import load_float_image
+                        from apps.methods.hdr_texture_data import make_hdr_preview_rgba
+                        hdr_result = load_float_image(file_path)
+
+                if hdr_result is not None:
+                    preview_rgba = make_hdr_preview_rgba(hdr_result)
+                    has_alpha = hdr_result['has_alpha']
+                    image_width = hdr_result['width']
+                    image_height = hdr_result['height']
+                    fmt = 'ARGB8888' if has_alpha else 'RGB888'
+                else:
+                    img = Image.open(file_path).convert('RGBA')
+                    has_alpha = img.mode == 'RGBA' and any(p[3] < 255 for p in img.getdata())
+                    preview_rgba = img.tobytes()
+                    image_width, image_height = img.size
+
+                    # Auto-detect format from pixel content
+                    fmt = 'ARGB8888' if has_alpha else 'RGB888'
 
                 if replace_mode and self.selected_texture:
                     # Replace: resample to original dimensions if different
                     tw, th = self.selected_texture['width'], self.selected_texture['height']
-                    if (img.width, img.height) != (tw, th):
+                    if hdr_result is not None:
+                        if (image_width, image_height) != (tw, th):
+                            preview = Image.frombytes('RGBA', (image_width, image_height), preview_rgba)
+                            preview_rgba = preview.resize((tw, th), Image.Resampling.LANCZOS).tobytes()
+                            if self.main_window and hasattr(self.main_window, 'log_message'):
+                                self.main_window.log_message(
+                                    f"Resized HDR preview for {fname} from "
+                                    f"{image_width}x{image_height} -> {tw}x{th}; original HDR pixels retained")
+                    elif (img.width, img.height) != (tw, th):
                         img = img.resize((tw, th), Image.Resampling.LANCZOS)
+                        preview_rgba = img.tobytes()
                         if self.main_window and hasattr(self.main_window, 'log_message'):
                             self.main_window.log_message(
                                 f"Resampled {fname} from "
-                                f"{img.width}x{img.height} -> {tw}x{th}")
+                                f"{image_width}x{image_height} -> {tw}x{th}")
                     # Keep original format and name
                     fmt  = self.selected_texture.get('format', fmt)
                     name = self.selected_texture.get('name', os.path.splitext(fname)[0])
                     self._save_undo_state(f"Replace texture: {name}")
-                    self.selected_texture['rgba_data'] = img.tobytes()
+                    self.selected_texture['rgba_data'] = preview_rgba
                     self.selected_texture['has_alpha']  = has_alpha
                     self.selected_texture['format']     = fmt
+                    for hdr_field in ('hdr_data', 'hdr_metadata', 'hdr_source'):
+                        self.selected_texture.pop(hdr_field, None)
+                    if hdr_result is not None:
+                        self.selected_texture['hdr_data'] = hdr_result['pixel_data'].copy()
+                        self.selected_texture['hdr_metadata'] = {
+                            'dtype': hdr_result['dtype'],
+                            'channels': hdr_result['channel_names'],
+                            'color_space': hdr_result['color_space'],
+                            'value_range': hdr_result['value_range'],
+                            'metadata': hdr_result['metadata'],
+                        }
+                        self.selected_texture['hdr_source'] = {
+                            'format': hdr_result['source_format'],
+                            'width': hdr_result['width'],
+                            'height': hdr_result['height'],
+                        }
                     # Keep width/height as original (we resampled)
                     if self.main_window and hasattr(self.main_window, 'log_message'):
                         self.main_window.log_message(
@@ -6268,9 +6318,9 @@ class TXDLogicMixin: #vers 1
                         name = name[:getattr(self, 'max_texture_name_length', 32)]
                     new_tex = {
                         'name':               name,
-                        'width':              img.width,
-                        'height':             img.height,
-                        'rgba_data':          img.tobytes(),
+                        'width':              image_width,
+                        'height':             image_height,
+                        'rgba_data':          preview_rgba,
                         'has_alpha':          has_alpha,
                         'format':             fmt,
                         'alpha_name':         name + 'a' if has_alpha else '',
@@ -6281,10 +6331,24 @@ class TXDLogicMixin: #vers 1
                         'platform_id':        8,
                         'filter_flags':       0x1102,
                     }
+                    if hdr_result is not None:
+                        new_tex['hdr_data'] = hdr_result['pixel_data'].copy()
+                        new_tex['hdr_metadata'] = {
+                            'dtype': hdr_result['dtype'],
+                            'channels': hdr_result['channel_names'],
+                            'color_space': hdr_result['color_space'],
+                            'value_range': hdr_result['value_range'],
+                            'metadata': hdr_result['metadata'],
+                        }
+                        new_tex['hdr_source'] = {
+                            'format': hdr_result['source_format'],
+                            'width': hdr_result['width'],
+                            'height': hdr_result['height'],
+                        }
                     self.texture_list.append(new_tex)
                     if self.main_window and hasattr(self.main_window, 'log_message'):
                         self.main_window.log_message(
-                            f"Added '{name}' ({img.width}x{img.height}, {fmt})")
+                            f"Added '{name}' ({image_width}x{image_height}, {fmt})")
                     imported += 1
             except Exception as e:
                 failed += 1
