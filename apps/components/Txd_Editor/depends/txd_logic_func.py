@@ -2082,6 +2082,8 @@ class TXDLogicMixin: #vers 1
 
             # Enable all transform buttons in BOTH icon and text panels
             self._set_transform_buttons_enabled(True)
+            if hasattr(self, 'hdr_tone_mapping_btn'):
+                self.hdr_tone_mapping_btn.setEnabled('hdr_data' in self.selected_texture)
             if hasattr(self, 'paste_btn'):
                 self.paste_btn.setEnabled(True)
             if hasattr(self, 'paint_btn'):
