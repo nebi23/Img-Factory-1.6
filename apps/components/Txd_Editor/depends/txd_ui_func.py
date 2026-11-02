@@ -113,6 +113,7 @@ class TXDUIMixin(TitlebarMixin): #vers 2
         # Tools
         tools = parent_menu.addMenu("Tools")
         tools.addAction("Colour Adjustments…", self._open_colour_adjust)
+        tools.addAction("HDR Tone Mapping…", self._open_hdr_tone_mapping)
         tools.addAction("Seamless Tool…",       self._open_seamless_tool)
         tools.addAction("Snow Effect…",         self._open_snow_tool)
         tools.addSeparator()
@@ -596,6 +597,8 @@ class TXDUIMixin(TitlebarMixin): #vers 2
              self._build_txd_from_dff,  attr='build_from_dff_btn')
         _act(tb_xform, "Filters", self.icon_factory.filter_icon,
              self._open_filters_dialog, enabled=False, attr='filters_btn')
+        _act(tb_xform, "HDR Tone Mapping", self.icon_factory.settings_icon,
+             self._open_hdr_tone_mapping, enabled=False, attr='hdr_tone_mapping_btn')
         tb_xform.addSeparator()
         _act(tb_xform, "Switch",        self.icon_factory.switch_view_icon,
              self.switch_texture_view,      enabled=False, attr='switch_btn')
