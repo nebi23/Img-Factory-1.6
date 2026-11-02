@@ -219,6 +219,49 @@ def setup_debug_shortcuts(main_window): #vers 5
 def setup_main_shortcuts(main_window): #vers 5
     """Setup main application shortcuts"""
     try:
+        def _active_txd_workshop():
+            """Return the TXD Workshop nested in the active main-window tab."""
+            tab_widget = getattr(main_window, 'main_tab_widget', None)
+            current_tab = tab_widget.currentWidget() if tab_widget else None
+            if current_tab is None:
+                return None
+            from PyQt6.QtWidgets import QWidget
+            candidates = [current_tab]
+            candidates.extend(current_tab.findChildren(QWidget))
+            return next(
+                (candidate for candidate in candidates
+                 if callable(getattr(candidate, '_import_textures', None))
+                 and callable(getattr(candidate, 'open_txd_file', None))),
+                None
+            )
+
+        def _dispatch_txd_or_main(method_name, fallback_name):
+            """Route file shortcuts to the active TXD editor, otherwise IMG Factory."""
+            workshop = _active_txd_workshop()
+            method = getattr(workshop, method_name, None) if workshop else None
+            if callable(method):
+                method()
+                return
+            fallback = getattr(main_window, fallback_name, None)
+            if callable(fallback):
+                fallback()
+            else:
+                main_window.log_message(f"{fallback_name} — not yet available")
+
+        def _dispatch_open():
+            _dispatch_txd_or_main('open_txd_file', 'open_img_file')
+
+        def _dispatch_save():
+            _dispatch_txd_or_main('_save_current', 'save_img')
+
+        def _dispatch_save_as():
+            workshop = _active_txd_workshop()
+            method = getattr(workshop, '_save_as_txd_file', None) if workshop else None
+            if callable(method):
+                method()
+            else:
+                main_window.log_message("Save As — not available outside TXD Workshop")
+
         def _dispatch_import_files():
             """Import into the active embedded TXD Workshop, or use IMG import."""
             tab_widget = getattr(main_window, 'main_tab_widget', None)
@@ -248,9 +291,10 @@ def setup_main_shortcuts(main_window): #vers 5
         shortcuts = [
             # File operations
             ("Ctrl+N", "create_new_img", "Create new IMG"),
-            ("Ctrl+O", "open_img_file", "Open IMG file"),
+            ("Ctrl+O", "_dispatch_open", "Open texture / IMG file"),
             ("Ctrl+W", "close_img_file", "Close IMG file"),
-            ("Ctrl+S", "save_img", "Save IMG"),
+            ("Ctrl+S", "_dispatch_save", "Save texture / IMG"),
+            ("Ctrl+Shift+S", "_dispatch_save_as", "Save texture files as"),
             ("Ctrl+Q", "close", "Exit application"),
 
             # Entry operations
@@ -287,11 +331,13 @@ def setup_main_shortcuts(main_window): #vers 5
         for key_sequence, method_name, description in shortcuts:
             # Local dispatcher callbacks are not attributes of main_window.
             # Resolve this callback directly instead of creating a placeholder.
-            method = (
-                _dispatch_import_files
-                if method_name == "_dispatch_import_files"
-                else getattr(main_window, method_name, None)
-            )
+            local_dispatchers = {
+                "_dispatch_import_files": _dispatch_import_files,
+                "_dispatch_open": _dispatch_open,
+                "_dispatch_save": _dispatch_save,
+                "_dispatch_save_as": _dispatch_save_as,
+            }
+            method = local_dispatchers.get(method_name, getattr(main_window, method_name, None))
             if method and callable(method):
                 shortcut = QShortcut(QKeySequence(key_sequence), main_window)
                 shortcut.activated.connect(method)
