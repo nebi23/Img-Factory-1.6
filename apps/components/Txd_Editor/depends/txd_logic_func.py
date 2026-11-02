@@ -2117,10 +2117,13 @@ class TXDLogicMixin: #vers 1
         Args:
             action_name: Description of the action being saved
         """
+        from apps.methods.hdr_texture_data import copy_hdr_fields
+
         texture_list_copy = []
 
         for texture in self.texture_list:
             tex_copy = texture.copy()
+            copy_hdr_fields(texture, tex_copy)
 
             # CRITICAL: Explicitly preserve all binary data fields
             if 'compressed_data' in texture:
@@ -6435,6 +6438,7 @@ class TXDLogicMixin: #vers 1
             has_alpha = self.selected_texture.get('has_alpha', False)
 
             # Create copy preserving ALL binary data
+            from apps.methods.hdr_texture_data import copy_hdr_fields
             new_texture = {
                 'name': self.selected_texture.get('name', 'texture') + "_copy",
                 'width': self.selected_texture.get('width', 0),
@@ -6471,6 +6475,7 @@ class TXDLogicMixin: #vers 1
             if 'fresnel_map' in self.selected_texture:
                 new_texture['fresnel_map'] = self.selected_texture['fresnel_map']
 
+            copy_hdr_fields(self.selected_texture, new_texture)
             self._save_undo_state("Duplicate texture")
             # Add to texture list
             self.texture_list.append(new_texture)
@@ -6496,6 +6501,7 @@ class TXDLogicMixin: #vers 1
 
         try:
             # Copy preserving ALL binary data
+            from apps.methods.hdr_texture_data import copy_hdr_fields
             self.clipboard_texture = {
                 'name': self.selected_texture.get('name', 'texture'),
                 'width': self.selected_texture.get('width', 0),
@@ -6527,6 +6533,7 @@ class TXDLogicMixin: #vers 1
             if 'fresnel_map' in self.selected_texture:
                 self.clipboard_texture['fresnel_map'] = self.selected_texture['fresnel_map']
 
+            copy_hdr_fields(self.selected_texture, self.clipboard_texture)
             self.paste_btn.setEnabled(True)
 
             if self.main_window and hasattr(self.main_window, 'log_message'):
@@ -6543,7 +6550,9 @@ class TXDLogicMixin: #vers 1
 
         try:
             # Create new texture entry with ALL clipboard data
+            from apps.methods.hdr_texture_data import copy_hdr_fields
             new_texture = self.clipboard_texture.copy()
+            copy_hdr_fields(self.clipboard_texture, new_texture)
             new_texture['name'] = new_texture['name'] + "_copy"
             if new_texture.get('alpha_name'):
                 new_texture['alpha_name'] = new_texture['alpha_name'] + "_copy"
