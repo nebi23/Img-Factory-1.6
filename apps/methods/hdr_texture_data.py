@@ -6,7 +6,7 @@ def copy_hdr_fields(source, target):
     if "hdr_data" in source:
         data = source["hdr_data"]
         target["hdr_data"] = data.copy() if hasattr(data, "copy") else deepcopy(data)
-    for key in ("hdr_metadata", "hdr_source"):
+    for key in ("hdr_metadata", "hdr_source", "hdr_preview_stale"):
         if key in source:
             target[key] = deepcopy(source[key])
     return target
@@ -43,3 +43,10 @@ def make_hdr_preview_rgba(hdr_result):
         alpha8 = np.full((*pixels.shape[:2], 1), 255, dtype=np.uint8)
 
     return np.concatenate((rgb8, alpha8), axis=2).tobytes()
+
+
+def mark_hdr_preview_modified(texture):
+    """Mark the RGBA8 preview as diverged from its retained HDR source."""
+    if "hdr_data" in texture:
+        texture["hdr_preview_stale"] = True
+    return texture
