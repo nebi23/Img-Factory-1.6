@@ -169,6 +169,9 @@ def _load_tiff(path):
                 "axes": axes,
                 "photometric": str(page.photometric),
                 "samples_per_pixel": int(page.samplesperpixel),
+                "planar_configuration": (
+                    int(page.planarconfig) if page.planarconfig is not None else None
+                ),
                 "bits_per_sample": page.bitspersample,
                 "compression": str(page.compression),
                 "extra_samples": [
@@ -194,6 +197,11 @@ def _load_tiff(path):
                 channel_names = ["Y"]
             elif pixel_data.ndim == 3 and axes.endswith("YXS"):
                 channel_count = pixel_data.shape[-1]
+                if page.planarconfig != 1:
+                    raise FloatImageLoadError(
+                        "TIFF YXS layout requires contiguous planar configuration "
+                        f"(found {page.planarconfig})."
+                    )
                 if page.samplesperpixel != channel_count:
                     raise FloatImageLoadError(
                         "TIFF sample count does not match its pixel layout: "
@@ -203,6 +211,11 @@ def _load_tiff(path):
                     channel_count, page.extrasamples, page.photometric
                 )
             elif pixel_data.ndim == 3 and axes.endswith("SYX"):
+                if page.planarconfig != 2:
+                    raise FloatImageLoadError(
+                        "TIFF SYX layout requires separate planar configuration "
+                        f"(found {page.planarconfig})."
+                    )
                 pixel_data = np.moveaxis(pixel_data, 0, -1)
                 channel_count = pixel_data.shape[-1]
                 if page.samplesperpixel != channel_count:
