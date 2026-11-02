@@ -220,23 +220,24 @@ def setup_main_shortcuts(main_window): #vers 5
     """Setup main application shortcuts"""
     try:
         def _dispatch_import_files():
-            """Import into the active TXD Workshop, or fall back to IMG import."""
+            """Import into the active embedded TXD Workshop, or use IMG import."""
             tab_widget = getattr(main_window, 'main_tab_widget', None)
             current_tab = tab_widget.currentWidget() if tab_widget else None
 
             if current_tab is not None:
-                try:
-                    from apps.components.Txd_Editor.txd_workshop import TXDWorkshop
-                    workshop = (
-                        current_tab if isinstance(current_tab, TXDWorkshop)
-                        else current_tab.findChild(TXDWorkshop)
-                    )
-                except Exception:
-                    workshop = None
+                # Embedded TXD tabs are QWidget containers; the workshop is
+                # nested inside their layout. Resolve it by capability rather
+                # than importing its class (which can fail under alternate
+                # module loading) or assuming the tab itself is the editor.
+                from PyQt6.QtWidgets import QWidget
 
-                if workshop is not None:
-                    workshop._import_textures()
-                    return
+                candidates = [current_tab]
+                candidates.extend(current_tab.findChildren(QWidget))
+                for candidate in candidates:
+                    import_textures = getattr(candidate, '_import_textures', None)
+                    if callable(import_textures):
+                        import_textures()
+                        return
 
             import_method = getattr(main_window, 'import_files', None)
             if callable(import_method):
