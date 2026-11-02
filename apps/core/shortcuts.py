@@ -288,12 +288,49 @@ def setup_main_shortcuts(main_window): #vers 5
             else:
                 main_window.log_message("Import files — not yet available")
 
+        # Qt's shortcut map can let nested widgets/actions claim Ctrl+O and
+        # Ctrl+S before the main-window QShortcuts activate. Intercept these
+        # two keys at the application level only while IMG Factory is active
+        # and the TXD Workshop tab is selected. This leaves normal IMG
+        # shortcuts untouched in every other tab/window.
+        from PyQt6.QtCore import QObject, QEvent
+        from PyQt6.QtWidgets import QApplication
+
+        class _TxdFileShortcutFilter(QObject):
+            def eventFilter(self, watched, event):
+                if event.type() != QEvent.Type.KeyPress:
+                    return False
+                active_window = QApplication.activeWindow()
+                if active_window is not main_window:
+                    return False
+                modifiers = event.modifiers()
+                ctrl = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
+                other = (Qt.KeyboardModifier.ShiftModifier |
+                         Qt.KeyboardModifier.AltModifier |
+                         Qt.KeyboardModifier.MetaModifier)
+                if not ctrl or modifiers & other:
+                    return False
+                workshop = _active_txd_workshop()
+                if workshop is None:
+                    return False
+                if event.key() == Qt.Key.Key_O:
+                    _dispatch_open()
+                    return True
+                if event.key() == Qt.Key.Key_S:
+                    _dispatch_save()
+                    return True
+                return False
+
+        shortcut_filter = _TxdFileShortcutFilter(main_window)
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(shortcut_filter)
+            main_window._txd_file_shortcut_filter = shortcut_filter
+
         shortcuts = [
             # File operations
             ("Ctrl+N", "create_new_img", "Create new IMG"),
-            ("Ctrl+O", "_dispatch_open", "Open texture / IMG file"),
             ("Ctrl+W", "close_img_file", "Close IMG file"),
-            ("Ctrl+S", "_dispatch_save", "Save texture / IMG"),
             ("Ctrl+Shift+S", "_dispatch_save_as", "Save texture files as"),
             ("Ctrl+Q", "close", "Exit application"),
 
