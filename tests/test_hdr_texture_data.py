@@ -3,11 +3,27 @@ import unittest
 import numpy as np
 
 from apps.methods.hdr_texture_data import (
-    copy_hdr_fields, mark_hdr_preview_modified, prepare_hdr_export_texture,
+    copy_hdr_fields, make_hdr_preview_rgba, mark_hdr_preview_modified,
+    prepare_hdr_export_texture,
 )
 
 
 class HdrTextureDataCopyTests(unittest.TestCase):
+
+    def test_grayscale_preview_is_replicated_to_rgb(self):
+        pixels = np.array([[[0.25]]], dtype=np.float32)
+        rgba = np.frombuffer(make_hdr_preview_rgba({
+            "pixel_data": pixels, "channel_names": ["Y"],
+        }), dtype=np.uint8)
+        self.assertEqual(rgba.tolist(), [64, 64, 64, 255])
+
+    def test_grayscale_alpha_preview_keeps_luminance_and_alpha_separate(self):
+        pixels = np.array([[[0.25, 0.5]]], dtype=np.float32)
+        rgba = np.frombuffer(make_hdr_preview_rgba({
+            "pixel_data": pixels, "channel_names": ["Y", "A"],
+        }), dtype=np.uint8)
+        self.assertEqual(rgba.tolist(), [64, 64, 64, 128])
+
     def test_pixel_array_is_copied_independently(self):
         source = {
             "hdr_data": np.array([[[1.5, -0.25, 2.0]]], dtype=np.float32),
