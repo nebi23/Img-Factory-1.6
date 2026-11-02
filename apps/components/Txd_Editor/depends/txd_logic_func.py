@@ -6381,7 +6381,14 @@ class TXDLogicMixin: #vers 1
                     from apps.methods.hdr_texture_data import make_hdr_preview_rgba
                     hdr_result = load_float_image(file_path)
                 elif extension in ('.tif', '.tiff'):
-                    import tifffile
+                    try:
+                        import tifffile
+                    except ImportError as exc:
+                        raise RuntimeError(
+                            "Floating-point TIFF import requires 'tifffile' and may require "
+                            "'imagecodecs' for compressed TIFF data. Install project "
+                            "dependencies with: python -m pip install -r requirements.txt"
+                        ) from exc
                     with tifffile.TiffFile(file_path) as tif:
                         is_float_tiff = bool(tif.series and tif.series[0].dtype.kind == 'f')
                     if is_float_tiff:
@@ -6492,6 +6499,16 @@ class TXDLogicMixin: #vers 1
                         self.main_window.log_message(
                             f"Added '{name}' ({image_width}x{image_height}, {fmt})")
                     imported += 1
+
+                if hdr_result is not None and self.main_window and hasattr(self.main_window, 'log_message'):
+                    value_min, value_max = hdr_result['value_range']
+                    channel_list = ', '.join(hdr_result['channel_names'])
+                    self.main_window.log_message(
+                        f"HDR source retained: {hdr_result['source_format']} "
+                        f"{hdr_result['dtype']}, {hdr_result['width']}x{hdr_result['height']}, "
+                        f"channels [{channel_list}], range {value_min:.6g}..{value_max:.6g}. "
+                        "Use Tools > HDR Tone Mapping to adjust the preview."
+                    )
             except Exception as e:
                 failed += 1
                 if self.main_window and hasattr(self.main_window, 'log_message'):
