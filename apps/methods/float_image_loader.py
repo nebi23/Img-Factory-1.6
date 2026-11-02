@@ -106,6 +106,14 @@ def _load_exr(path):
         if any(array.shape != shape for array in arrays):
             raise FloatImageLoadError("EXR channels do not share the same dimensions.")
 
+        dtypes = {array.dtype for array in arrays}
+        if len(dtypes) != 1:
+            dtype_names = ", ".join(sorted(str(dtype) for dtype in dtypes))
+            raise FloatImageLoadError(
+                "EXR channels use mixed pixel data types "
+                f"({dtype_names}); convert them to one floating-point type first."
+            )
+
         pixel_data = np.stack(arrays, axis=-1)
         if pixel_data.dtype.kind != "f":
             raise FloatImageLoadError(
@@ -113,10 +121,18 @@ def _load_exr(path):
             )
 
         color_space = _exr_color_space(header)
+        ignored_channels = [
+            name for name in source_channels
+            if name not in {
+                f"{selected_layer}.{channel_name}" if selected_layer else channel_name
+                for channel_name in channel_names
+            }
+        ]
         metadata = {
             "header": _safe_metadata(header),
             "channel_names": channel_names,
             "selected_layer": selected_layer or None,
+            "ignored_channels": ignored_channels,
         }
         return _build_result(
             pixel_data, "EXR", channel_names, color_space, metadata
