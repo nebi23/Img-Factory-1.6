@@ -193,8 +193,10 @@ def _load_tiff(path):
                         f"photometric={page.photometric}, "
                         f"samples_per_pixel={page.samplesperpixel}."
                     )
+                channel_names = _tiff_channel_names(
+                    1, page.extrasamples, page.photometric
+                )
                 pixel_data = pixel_data[..., np.newaxis]
-                channel_names = ["Y"]
             elif pixel_data.ndim == 3 and axes.endswith("YXS"):
                 channel_count = pixel_data.shape[-1]
                 if page.planarconfig != 1:
