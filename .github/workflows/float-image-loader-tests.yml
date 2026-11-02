@@ -28,3 +28,6 @@ jobs:
 
       - name: Run HDR texture data tests
         run: python -m unittest discover -s tests -p "test_hdr_texture_data.py" -v
+
+      - name: Run HDR preview tests
+        run: python -m unittest discover -s tests -p "test_hdr_preview.py" -v
