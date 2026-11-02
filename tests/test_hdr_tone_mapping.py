@@ -74,5 +74,5 @@ class HdrToneMappingTests(unittest.TestCase):
             tone_map(np.ones((1, 1, 3), dtype=np.float32), exposure=100)
 
 
-if __ (name=="__main__"):
+if __name__ == "__main__":
     unittest.main()
