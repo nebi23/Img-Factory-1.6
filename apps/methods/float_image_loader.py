@@ -195,12 +195,14 @@ def _load_tiff(path):
 def _tiff_channel_names(channel_count):
     if channel_count == 1:
         return ["Y"]
+    if channel_count == 2:
+        return ["Y", "A"]
     if channel_count == 3:
         return ["R", "G", "B"]
     if channel_count == 4:
         return ["R", "G", "B", "A"]
     raise FloatImageLoadError(
-        f"Unsupported TIFF channel count: {channel_count} (expected 1, 3, or 4)."
+        f"Unsupported TIFF channel count: {channel_count} (expected 1, 2, 3, or 4)."
     )
 
 
