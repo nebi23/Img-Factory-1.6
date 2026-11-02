@@ -1188,7 +1188,7 @@ class TXDUIMixin(TitlebarMixin): #vers 2
             'flip_vert_btn', 'flip_horz_btn', 'rotate_cw_btn', 'rotate_ccw_btn',
             'copy_btn', 'delete_texture_btn', 'duplicate_texture_btn',
             'filters_btn', 'paint_btn', 'switch_btn', 'gen_alpha_btn',
-            'props_btn', 'convert_btn', 'compress_btn', 'uncompress_btn',
+            'props_btn', 'hdr_tone_mapping_btn', 'convert_btn', 'compress_btn', 'uncompress_btn',
             'resize_btn', 'upscale_btn', 'bitdepth_btn',
         ]
         for attr in transform_attrs:
