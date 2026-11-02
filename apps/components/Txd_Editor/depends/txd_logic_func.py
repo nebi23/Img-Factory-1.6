@@ -5793,6 +5793,8 @@ class TXDLogicMixin: #vers 1
         """Adjust the selected HDR texture's tone-mapped preview and export settings."""
         from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QComboBox,
                                      QDoubleSpinBox, QLabel, QDialogButtonBox, QMessageBox)
+        from PyQt6.QtGui import QImage, QPixmap
+        from PyQt6.QtCore import Qt
         texture = getattr(self, 'selected_texture', None)
         if not texture or 'hdr_data' not in texture:
             QMessageBox.information(self, "HDR Tone Mapping",
@@ -5820,9 +5822,47 @@ class TXDLogicMixin: #vers 1
         exposure_spin.setValue(float(texture.get('hdr_exposure', 0.0)))
         form.addRow("Exposure:", exposure_spin)
         layout.addLayout(form)
+
+        preview_label = QLabel("Generating preview…")
+        preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        preview_label.setMinimumSize(280, 160)
+        preview_label.setMaximumSize(520, 360)
+        layout.addWidget(preview_label)
+
+        from copy import copy
+        from apps.methods.hdr_texture_data import prepare_hdr_export_texture
+
+        def refresh_hdr_preview(*_):
+            candidate_preview = copy(texture)
+            candidate_preview['hdr_tone_operator'] = operator_combo.currentData()
+            candidate_preview['hdr_exposure'] = exposure_spin.value()
+            candidate_preview['hdr_preview_stale'] = False
+            try:
+                prepared_preview = prepare_hdr_export_texture(candidate_preview)
+                preview_width = int(prepared_preview['width'])
+                preview_height = int(prepared_preview['height'])
+                image = QImage(
+                    prepared_preview['rgba_data'], preview_width, preview_height,
+                    preview_width * 4, QImage.Format.Format_RGBA8888
+                ).copy()
+                pixmap = QPixmap.fromImage(image).scaled(
+                    preview_label.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                preview_label.setPixmap(pixmap)
+                preview_label.setText("")
+            except Exception as exc:
+                preview_label.setPixmap(QPixmap())
+                preview_label.setText(f"Preview unavailable: {exc}")
+
+        operator_combo.currentIndexChanged.connect(refresh_hdr_preview)
+        exposure_spin.valueChanged.connect(refresh_hdr_preview)
+        refresh_hdr_preview()
+
         layout.addWidget(QLabel(
-            "The HDR source remains unchanged. Applying these settings updates the "
-            "8-bit preview; later manual edits take priority during export."
+            "The HDR source remains unchanged. OK applies these settings; "
+            "later manual edits take priority during export."
         ))
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok |
@@ -5835,8 +5875,6 @@ class TXDLogicMixin: #vers 1
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
 
-        from copy import copy
-        from apps.methods.hdr_texture_data import prepare_hdr_export_texture
         candidate = copy(texture)
         candidate['hdr_tone_operator'] = operator_combo.currentData()
         candidate['hdr_exposure'] = exposure_spin.value()
