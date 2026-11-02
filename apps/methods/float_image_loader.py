@@ -258,7 +258,7 @@ def _tiff_channel_names(channel_count, extra_samples=(), photometric=None):
         and extra_names[0] in {"ASSOCALPHA", "UNASSALPHA"}
     )
 
-    if channel_count == 1 and not extra_names:
+    if channel_count == 1 and photometric in (0, 1) and not extra_names:
         return ["Y"]
     if channel_count == 2 and photometric == 1 and has_alpha:
         return ["Y", "A"]
