@@ -155,6 +155,10 @@ def _load_tiff(path):
                 "samples_per_pixel": int(page.samplesperpixel),
                 "bits_per_sample": page.bitspersample,
                 "compression": str(page.compression),
+                "extra_samples": [
+                    _tiff_extra_sample_name(sample)
+                    for sample in (page.extrasamples or ())
+                ],
             }
 
             if pixel_data.dtype.kind != "f":
@@ -168,11 +172,15 @@ def _load_tiff(path):
                 channel_names = ["Y"]
             elif pixel_data.ndim == 3 and axes.endswith("YXS"):
                 channel_count = pixel_data.shape[-1]
-                channel_names = _tiff_channel_names(channel_count)
+                channel_names = _tiff_channel_names(
+                    channel_count, page.extrasamples, page.photometric
+                )
             elif pixel_data.ndim == 3 and axes.endswith("SYX"):
                 pixel_data = np.moveaxis(pixel_data, 0, -1)
                 channel_count = pixel_data.shape[-1]
-                channel_names = _tiff_channel_names(channel_count)
+                channel_names = _tiff_channel_names(
+                    channel_count, page.extrasamples, page.photometric
+                )
             else:
                 raise FloatImageLoadError(
                     f"Unsupported TIFF image layout: axes={axes}, "
@@ -192,17 +200,34 @@ def _load_tiff(path):
         raise FloatImageLoadError(f"Could not read TIFF image '{path.name}': {exc}") from exc
 
 
-def _tiff_channel_names(channel_count):
+def _tiff_extra_sample_name(sample):
+    return getattr(sample, "name", str(sample)).upper()
+
+
+def _tiff_channel_names(channel_count, extra_samples=(), photometric=None):
+    alpha_samples = {"ASSOCALPHA", "UNASSALPHA"}
+    has_alpha = any(
+        _tiff_extra_sample_name(sample) in alpha_samples
+        for sample in (extra_samples or ())
+    )
+
     if channel_count == 1:
         return ["Y"]
-    if channel_count == 2:
+    if channel_count == 2 and photometric == 1 and has_alpha:
         return ["Y", "A"]
-    if channel_count == 3:
+    if channel_count == 3 and photometric == 2:
         return ["R", "G", "B"]
-    if channel_count == 4:
+    if channel_count == 4 and photometric == 2 and has_alpha:
         return ["R", "G", "B", "A"]
+
+    extra_names = [
+        _tiff_extra_sample_name(sample) for sample in (extra_samples or ())
+    ]
     raise FloatImageLoadError(
-        f"Unsupported TIFF channel count: {channel_count} (expected 1, 2, 3, or 4)."
+        "Unsupported TIFF channel layout: "
+        f"{channel_count} samples, photometric={photometric}, "
+        f"extra_samples={extra_names}. "
+        "Expected grayscale, grayscale+alpha, RGB, or RGBA."
     )
 
 
